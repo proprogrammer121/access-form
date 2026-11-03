@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rate a Place</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #555555; --line: #767676;
+    --accent: #0b57d0; --accent-fg: #ffffff; --soft: #eef3fc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121212; --fg: #f2f2f2; --muted: #b5b5b5; --line: #8a8a8a;
+      --accent: #8ab4f8; --accent-fg: #0b1a33; --soft: #1d2433;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 18px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--fg); }
+  main { max-width: 34rem; margin: 0 auto; padding: 1rem 1rem 3rem; }
+  h1 { font-size: 1.5rem; margin: .5rem 0 .25rem; }
+  .lead { color: var(--muted); margin: 0 0 1rem; }
+  fieldset { border: 0; padding: 0; margin: 1.5rem 0; }
+  legend { font-weight: 700; padding: 0; margin-bottom: .4rem; }
+  label.field { display: block; font-weight: 700; margin: 1rem 0 .3rem; }
+  input[type=text], textarea {
+    width: 100%; font: inherit; padding: .7rem; color: var(--fg); background: var(--bg);
+    border: 2px solid var(--line); border-radius: 8px;
+  }
+  .choice {
+    display: flex; align-items: center; gap: .75rem; min-height: 48px;
+    padding: .4rem .75rem; margin: .4rem 0; border: 2px solid var(--line);
+    border-radius: 8px; cursor: pointer;
+  }
+  .choice input { width: 1.4rem; height: 1.4rem; flex: none; accent-color: var(--accent); }
+  .choice:has(input:checked) { background: var(--soft); border-color: var(--accent); }
+  .hint { color: var(--muted); font-size: .9rem; display: block; }
+  button {
+    font: inherit; font-weight: 700; min-height: 48px; padding: .6rem 1.1rem;
+    border-radius: 8px; border: 2px solid var(--accent); cursor: pointer;
+    background: var(--bg); color: var(--accent);
+  }
+  button.primary { background: var(--accent); color: var(--accent-fg); width: 100%; margin-top: 1rem; }
+  button:disabled { opacity: .6; cursor: default; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .status { margin: .5rem 0 0; min-height: 1.5rem; }
+  .notice { padding: .75rem 1rem; border: 2px solid var(--line); border-radius: 8px; margin: 1rem 0; }
+  .hp { position: absolute; left: -9999px; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Rate a place</h1>
+  <p class="lead">About 10 minutes per place. Rate what an average visitor would experience.</p>
+
+  <form id="form" novalidate>
+    <label class="field" for="place">Place name</label>
+    <input type="text" id="place" name="place" autocomplete="off" required>
+
+    <label class="field" for="address">Street address</label>
+    <input type="text" id="address" name="address" autocomplete="street-address" required>
+
+    <p>
+      <button type="button" id="locBtn">Add my location (optional)</button>
+    </p>
+    <p class="status" id="locStatus" role="status" aria-live="polite"></p>
+
+    <fieldset>
+      <legend>Time of day</legend>
+      <label class="choice"><input type="radio" name="time_of_day" value="morning" required> Morning (before 11)</label>
+      <label class="choice"><input type="radio" name="time_of_day" value="midday"> Midday (11 to 2)</label>
+      <label class="choice"><input type="radio" name="time_of_day" value="afternoon"> Afternoon (2 to 5)</label>
+      <label class="choice"><input type="radio" name="time_of_day" value="evening"> Evening (after 5)</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>How busy is it?</legend>
+      <label class="choice"><input type="radio" name="busy" value="empty" required> Empty</label>
+      <label class="choice"><input type="radio" name="busy" value="half full"> About half full</label>
+      <label class="choice"><input type="radio" name="busy" value="full"> Full</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Noise</legend>
+      <p class="hint">Pick what matches the conversation test. The sound reading is only a check.</p>
+      <label class="choice"><input type="radio" name="noise" value="quiet" required>
+        <span>Quiet <span class="hint">You can talk in a low voice</span></span></label>
+      <label class="choice"><input type="radio" name="noise" value="moderate">
+        <span>Moderate <span class="hint">You can talk normally, but you notice the noise</span></span></label>
+      <label class="choice"><input type="radio" name="noise" value="loud">
+        <span>Loud <span class="hint">You have to raise your voice</span></span></label>
+
+      <p>
+        <button type="button" id="measureBtn">Measure sound (20 seconds)</button>
+      </p>
+      <p class="status" id="measureStatus" role="status" aria-live="polite"></p>
+      <input type="hidden" name="db_avg" id="db_avg">
+      <input type="hidden" name="db_peak" id="db_peak">
+    </fieldset>
+
+    <fieldset>
+      <legend>Lighting</legend>
+      <label class="choice"><input type="radio" name="lighting" value="dim" required>
+        <span>Dim <span class="hint">Hard to read a menu without a phone light</span></span></label>
+      <label class="choice"><input type="radio" name="lighting" value="comfortable">
+        <span>Comfortable <span class="hint">Easy to read, no glare</span></span></label>
+      <label class="choice"><input type="radio" name="lighting" value="bright">
+        <span>Bright <span class="hint">Harsh or glaring, even indoors</span></span></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tick anything you notice</legend>
+      <label class="choice"><input type="checkbox" name="triggers" value="hand dryer, espresso machine, or blender"> Hand dryer, espresso machine, or blender</label>
+      <label class="choice"><input type="checkbox" name="triggers" value="loud music or echo"> Loud music or echo</label>
+      <label class="choice"><input type="checkbox" name="triggers" value="flickering lights"> Flickering lights</label>
+      <label class="choice"><input type="checkbox" name="triggers" value="glare or flashing screens"> Glare or flashing screens</label>
+      <label class="choice"><input type="checkbox" name="triggers" value="quiet or dim area available"> A quiet or dim area is available</label>
+    </fieldset>
+
+    <label class="field" for="note">Anything else? (optional)</label>
+    <textarea id="note" name="note" rows="3"></textarea>
+
+    <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <input type="hidden" name="lat" id="lat">
+    <input type="hidden" name="lng" id="lng">
+
+    <p class="status" id="formStatus" role="alert"></p>
+    <button type="submit" class="primary" id="submitBtn">Submit</button>
+  </form>
+
+  <section id="thanks" hidden tabindex="-1">
+    <h2>Thank you!</h2>
+    <p>Your rating was sent.</p>
+    <button type="button" id="againBtn">Rate another place</button>
+  </section>
+</main>
+
+<script>
+// ---- Settings -------------------------------------------------------------
+// Paste your Google Apps Script web app URL between the quotes (see README.md).
+const SCRIPT_URL = "";
+
+// Phone microphones are not calibrated. This number shifts the estimate so it
+// lands near real decibel readings. Adjust it after comparing with a real meter.
+const OFFSET_DB = 94;
+const MEASURE_SECONDS = 20;
+const QUIET_BELOW = 50;   // estimated dB under this suggests "quiet"
+const LOUD_ABOVE = 65;    // estimated dB over this suggests "loud"
+// ---------------------------------------------------------------------------
+
+const $ = (id) => document.getElementById(id);
+const form = $("form");
+
+function presetTimeOfDay() {
+  const h = new Date().getHours();
+  const slot = h < 11 ? "morning" : h < 14 ? "midday" : h < 17 ? "afternoon" : "evening";
+  const radio = form.querySelector('input[name="time_of_day"][value="' + slot + '"]');
+  if (radio) radio.checked = true;
+}
+
+// ---- Location -------------------------------------------------------------
+$("locBtn").addEventListener("click", () => {
+  const status = $("locStatus");
+  if (!navigator.geolocation) { status.textContent = "Location is not available on this device."; return; }
+  status.textContent = "Finding your location...";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      $("lat").value = pos.coords.latitude.toFixed(5);
+      $("lng").value = pos.coords.longitude.toFixed(5);
+      status.textContent = "Location added.";
+    },
+    () => { status.textContent = "Could not get your location. You can skip this."; },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+});
+
+// ---- Sound meter ----------------------------------------------------------
+$("measureBtn").addEventListener("click", async () => {
+  const btn = $("measureBtn");
+  const status = $("measureStatus");
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    status.textContent = "This browser cannot measure sound. Please pick a level yourself.";
+    return;
+  }
+  btn.disabled = true;
+  let stream, ctx;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    const AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    await ctx.resume();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+
+    const levels = [];   // one estimated dB value per 100 ms
+    const start = Date.now();
+    await new Promise((resolve) => {
+      const timer = setInterval(() => {
+        analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        const rms = Math.max(Math.sqrt(sum / buf.length), 1e-8);
+        levels.push(20 * Math.log10(rms) + OFFSET_DB);
+        const left = Math.max(0, MEASURE_SECONDS - Math.round((Date.now() - start) / 1000));
+        status.textContent = "Listening... " + left + " seconds left. Nothing is recorded.";
+        if (Date.now() - start >= MEASURE_SECONDS * 1000) { clearInterval(timer); resolve(); }
+      }, 100);
+    });
+
+    // Average by energy (not by simple mean of dB values).
+    const energy = levels.reduce((a, d) => a + Math.pow(10, d / 10), 0) / levels.length;
+    const avg = Math.round(10 * Math.log10(energy));
+    const peak = Math.round(Math.max.apply(null, levels));
+    $("db_avg").value = avg;
+    $("db_peak").value = peak;
+
+    const level = avg < QUIET_BELOW ? "quiet" : avg > LOUD_ABOVE ? "loud" : "moderate";
+    const radio = form.querySelector('input[name="noise"][value="' + level + '"]');
+    if (radio) radio.checked = true;
+    status.textContent = "About " + avg + " dB (rough estimate). We selected \"" + level +
+      "\". Change it if that does not match what you hear.";
+  } catch (err) {
+    status.textContent = (err && err.name === "NotAllowedError")
+      ? "Microphone access was blocked. You can pick a level yourself."
+      : "Could not use the microphone. You can pick a level yourself.";
+  } finally {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    if (ctx) ctx.close();
+    btn.disabled = false;
+  }
+});
+
+// ---- Submit ---------------------------------------------------------------
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const status = $("formStatus");
+  status.textContent = "";
+
+  const missing = [];
+  if (!$("place").value.trim()) missing.push("place name");
+  if (!$("address").value.trim()) missing.push("street address");
+  ["time_of_day", "busy", "noise", "lighting"].forEach((name) => {
+    if (!form.querySelector('input[name="' + name + '"]:checked')) missing.push(name.replace("_", " "));
+  });
+  if (missing.length) { status.textContent = "Please fill in: " + missing.join(", ") + "."; return; }
+
+  const fd = new FormData(form);
+  if (fd.get("website")) { showThanks(); return; }   // spam trap
+
+  if (!SCRIPT_URL) {
+    status.textContent = "Setup needed: the form is not connected to a Google Sheet yet. See README.md.";
+    return;
+  }
+
+  const body = new URLSearchParams();
+  fd.forEach((value, key) => { if (key !== "triggers") body.append(key, value); });
+  body.set("triggers", fd.getAll("triggers").join("; "));
+  body.set("submitted_at", new Date().toISOString());
+
+  $("submitBtn").disabled = true;
+  try {
+    // no-cors: the browser cannot read the reply, so we assume success unless the network fails.
+    await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: body });
+    showThanks();
+  } catch (err) {
+    status.textContent = "Could not send. Check your connection and try again.";
+  } finally {
+    $("submitBtn").disabled = false;
+  }
+});
+
+function showThanks() {
+  form.hidden = true;
+  $("thanks").hidden = false;
+  $("thanks").focus();
+}
+
+$("againBtn").addEventListener("click", () => {
+  form.reset();
+  $("db_avg").value = $("db_peak").value = $("lat").value = $("lng").value = "";
+  $("locStatus").textContent = "";
+  $("measureStatus").textContent = "";
+  $("formStatus").textContent = "";
+  presetTimeOfDay();
+  $("thanks").hidden = true;
+  form.hidden = false;
+  window.scrollTo(0, 0);
+  $("place").focus();
+});
+
+presetTimeOfDay();
+</script>
+</body>
+</html>
